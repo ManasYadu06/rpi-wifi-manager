@@ -1,0 +1,51 @@
+[Unit]
+Description=RPi WiFi Manager (Hotspot + Client + Auto-Reconnect)
+Documentation=https://github.com/ManasYadu06/rpi-wifi-connectivity-through-hotspot
+# Wait for NetworkManager and wireless kernel modules
+After=NetworkManager.service network-pre.target sys-subsystem-net-devices-wlan0.device
+Wants=NetworkManager.service
+BindsTo=sys-subsystem-net-devices-wlan0.device
+
+[Service]
+Type=notify
+NotifyAccess=main
+
+# Run as root (needed for nmcli, iw, rfkill)
+User=root
+Group=root
+
+# The main daemon command
+ExecStart=/usr/local/bin/wifi-manager daemon
+
+# Pre-start: clear rfkill blocks and bring interface up fast
+ExecStartPre=/usr/sbin/rfkill unblock wifi
+ExecStartPre=/sbin/ip link set wlan0 up
+
+# Graceful stop
+ExecStop=/bin/kill -TERM $MAINPID
+KillMode=process
+TimeoutStopSec=10
+
+# Auto-restart on failure with backoff
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+# Watchdog: service must call sd_notify WATCHDOG=1 every 2x this interval
+WatchdogSec=150
+
+# Runtime dir for state file
+RuntimeDirectory=rpi-wifi-manager
+RuntimeDirectoryMode=0755
+
+# Logging to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=rpi-wifi-manager
+
+# Allow service to modify network configuration
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target
